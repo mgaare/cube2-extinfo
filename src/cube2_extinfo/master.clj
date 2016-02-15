@@ -1,12 +1,8 @@
 (ns cube2-extinfo.master
    "Functions that deal with interacting with the master server."
-   (:require [clojure.string :as str]
-             [aleph.tcp :as tcp]
-             [gloss.core :as gloss]
-             [gloss.io :as io]
-             [manifold.deferred :as d]
-             [manifold.stream :as s]))
-
+   (:require [clojure.java.io :as io]
+             [clojure.string :as str])
+   (:import java.net.Socket))
 
 ;; Master server commands
 
@@ -17,24 +13,9 @@
 
 (def default-master "sauerbraten.org:28787")
 
-(def protocol
-  (gloss/compile-frame
-   (gloss/string :ascii :delimiters ["\n" "\r\n"])))
-
-(defn wrap-duplex-stream
-  [prot s]
-  (let [out (s/stream)]
-    (s/connect
-     (s/map #(io/encode prot %) out)
-     s)
-    (s/splice
-     out
-     (io/decode-stream s prot))))
-
-(defn client
+(defn socket
   [host port]
-  (d/chain (tcp/client {:host host :port port})
-           #(wrap-duplex-stream protocol %)))
+  (Socket. host port))
 
 (defn parse-server
   [server-str]
@@ -47,7 +28,13 @@
    (let [[host port] (str/split master #":")]
      (server-list host (Long/parseLong port))))
   ([host port]
-   @(d/let-flow [s (client host port)]
-      (s/put! s "list")
-      (->> (s/stream->seq s)
-           (map parse-server)))))
+   (with-open [socket (socket host port)
+               r (io/reader socket)
+               w (io/writer socket)]
+     (.write w "list")
+     (.newLine w)
+     (.flush w)
+     (->> (line-seq r)
+          (doall)
+          (drop-last)
+          (map parse-server)))))
