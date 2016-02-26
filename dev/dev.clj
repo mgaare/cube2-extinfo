@@ -318,9 +318,10 @@
   [length getter xform bo]
   (assert (pos? length) "length must be positive.")
   (if (= 1 length)
-    `(fn [b#]
-       [(~xform (byte b#))
-        nil])
+    `(fn []
+       (fn [b#]
+         [(~xform (byte b#))
+          nil]))
     (let [bo (get byte-order bo)]
       `(letfn [(df# [carry#]
                 (fn [b'#]
@@ -332,19 +333,86 @@
                        nil]
                       [nil
                        (df# carry'#)]))))]
-         (df# [])))))
+         (fn [] (df# []))))))
 
-(def deserialise-long
+(def long-d
   (fixed-length-byte-deserialiser 8 getLong identity :be))
 
-(def deserialise-long-le
+(def long-le-d
   (fixed-length-byte-deserialiser 8 getlong identity :le))
 
-(def deserialise-int
+(def int-d
   (fixed-length-byte-deserialiser 4 getInt identity :be))
 
-(def deserialise-int-le
+(def int-le-d
   (fixed-length-byte-deserialiser 4 getInt identity :le))
+
+(def short-d
+  (fixed-length-byte-deserialiser 2 getShort identity :be))
+
+(def short-le-d
+  (fixed-length-byte-deserialiser 2 getShort identity :le))
+
+(defn return-value
+  "Helper function to return a value with no next-d."
+  [v]
+  [v nil])
+
+(defn return-next-d
+  [next-d]
+  [nil next-d])
+
+(defn cstring-d
+  "Deserialises null-terminated strings."
+  []
+  (fn df
+    ([b]
+     (df [] b))
+    ([carry b]
+     (if (zero? b)
+       (return-value (str/join carry))
+       (return-next-d (partial df (conj carry (char b))))))))
+
+(defn cube-compresed-int-d
+  "Deserialiser for cube compressed ints."
+  []
+  (fn [b]
+    (case b
+      -128 (return-next-d short-le-d)
+      -127 (return-next-d int-le-d)
+      (return-value (int b)))))
+
+(defn map-deserialiser
+  "Deserialises bytes into a map. Takes keyvals where the vals are deserialisers.
+
+   eg. \"(map-deserialiser :a (cstring-d) :b (int-d))\""
+  [& d-kvs]
+  (assert (even? (count d-kvs))
+          "an even number of key deserialiser pairs is required")
+  (let [ds (partition 2 d-kvs)
+        add-v (fn [v]
+                (fn [cur] (cond (nil? cur)
+                                v
+                                (vector? cur)
+                                (conj cur v)
+                                :else (conj [cur] v))))
+        [first-k first-d] (first ds)]
+    (letfn [(df [cur-k cur-d rest-ds carry]
+              (fn [b]
+                (let [[v d'] (cur-d b)
+                      carry' (when v (update carry cur-k (add-v v)))]
+                  (cond (and v d')
+                        (return-next-d
+                         (df cur-k d' rest-ds carry'))
+                        d'
+                        (return-next-d
+                         (df cur-k d' rest-ds carry))
+                        v
+                        (let [[next-k next-d] (first rest-ds)]
+                          (if (seq rest-ds)
+                            (return-next-d (df next-k next-d (rest rest-ds) carry'))
+                            (return-value carry')))))))]
+      (df first-k first-d (rest ds) {}))))
 
 (defn functional-byte-deserialiser
   "Takes a collection of deserialisers, and returns a function that,
@@ -359,3 +427,16 @@
                    (cons d-obj (deserialise (rest ds) (first ds) (rest bs)))
                    (deserialise ds d' (rest bs)))))))]
     (partial deserialise (rest ds) (first ds))))
+
+
+;; General idea here:
+
+;; a deserialiser is a function that takes a byte and returns
+;; [value next-deserialiser]
+
+;; value and next-deserialiser can both be nil.
+
+;; we can also add middlewares that have the same signature
+
+;; to get a deserialiser, call one of the constructor functions with
+;; constructor-specific initialization values
