@@ -39,6 +39,10 @@
   [next-d]
   [nil next-d])
 
+(defn return-nothing
+  "Helper function to return an empty value and next deserialiser."
+  []
+  [nil nil])
 
 (def byte-order
   {:le `ByteOrder/LITTLE_ENDIAN
@@ -200,13 +204,30 @@
   (letfn [(df [d]
             (fn
               ([b]
-               (let [[v d'] (d b)]
+               (let [[v d'] (deserialise d b)]
+                 (if v
+                   (return-next (value-f v))
+                   (return-next d'))))
+              ([]
+               (flush d))))]
+    (df d)))
 
-                 )
-               )
-              )
-            )])
-  )
+(defn wrap-enum-value
+  "Takes a deserializer and a function (including a map). Calls the
+   deserialiser until it returns a value, which is returned along with
+   a next-d that is the result of calling value-f on the deserialised
+   value."
+  [d value-f]
+  (letfn [(df [d]
+            (fn
+              ([b]
+               (let [[v d'] (deserialise d b)]
+                 (if v
+                   [v (value-f v)]
+                   (return-next d'))))
+              ([]
+               (flush d))))]
+    (df d)))
 
 (defn alternative
   "Takes a deserialiser and keyvals in the form of value, deserialiser.
