@@ -1,7 +1,29 @@
 (ns cube2-extinfo.extinfo
   (:require [cube2-extinfo.deserialise :as d]))
 
-
+(def modes [:ffa
+            :coop-edit
+            :teamplay
+            :instagib
+            :insta-team
+            :efficiency
+            :effic-team
+            :tactics
+            :tac-team
+            :capture
+            :regen-capture
+            :ctf
+            :insta-ctf
+            :protect
+            :insta-protect
+            :hold
+            :insta-hold
+            :effic-ctf
+            :effic-protect
+            :effic-hold
+            :collect
+            :insta-collect
+            :effic-collect])
 
 ;; serverinfo
 
@@ -39,13 +61,18 @@
                 3 :mm-private
                 4 :mm-password}))
 
+(defn gamemode
+  []
+  (d/wrap-enum (d/cube-compressed-int)
+               (partial get modes)))
+
 (defn server-info
   []
   (d/merge-hmaps
    (d/hmap :command-id (d/cube-compressed-int)
            :clients (d/cube-compressed-int))
    (let [base-attrs [:protocol-version (d/cube-compressed-int)
-                     :gamemode (d/cube-compressed-int)
+                     :gamemode (gamemode)
                      :remaining-time (d/cube-compressed-int)
                      :maxclients (d/cube-compressed-int)
                      :mastermode (mastermode)]]
