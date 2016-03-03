@@ -104,7 +104,7 @@
                carry)))]
     (df [])))
 
-(defn cube-compresed-int
+(defn cube-compressed-int
   "Deserialiser for cube compressed ints."
   []
   (fn
@@ -134,7 +134,7 @@
     (letfn [(df [cur-k cur-d rest-ds carry]
               (fn
                 ([b]
-                 (let [[v d'] (cur-d b)
+                 (let [[v d'] (deserialise cur-d b)
                        carry' (when v (update carry cur-k (add-v v)))]
                    (cond (and v d')
                          (return-next
@@ -146,13 +146,13 @@
                          (let [[next-k next-d] (first rest-ds)]
                            (if (seq rest-ds)
                              (return-next (df next-k next-d (rest rest-ds) carry'))
-                             (return-value carry'))))))
+                             (return-value carry')))
+                         :else (return-value 'carry))))
                 ([]
-                 (if-let [flush-v (cur-d)]
+                 (if-let [flush-v (flush cur-d)]
                    (update carry cur-k (add-v flush-v))
                    carry))))]
       (df first-k first-d (rest ds) {}))))
-
 
 (defn sequential
   "Returns a deserialiser which will deserialise using deserialisers
@@ -161,7 +161,7 @@
   (letfn [(df [d ds]
             (fn
               ([b]
-               (let [[v d'] (d b)]
+               (let [[v d'] (deserialise d b)]
                  (cond (and v d')
                        [v (df d' ds)]
                        d'
@@ -169,10 +169,28 @@
                        v
                        (if-let [next-d (first ds)]
                          [v (df next-d (rest ds))]
-                         [v nil]))))
+                         [v nil])
+                       :else [nil nil])))
               ([]
-               (d))))]
+               (flush d))))]
     (df (first ds) (rest ds))))
+
+(defn merge-hmaps
+  [& hmaps]
+  (letfn [(df [collect d]
+            (fn
+              ([b]
+               (let [[v d'] (deserialise d b)]
+                 (cond (and v d')
+                       (return-next (df (conj collect v) d'))
+                       d'
+                       (return-next (df collect d'))
+                       v
+                       (return-value (apply merge (conj collect v)))
+                       :else
+                       (return-value (apply merge collect)))))
+              ([] (return-value (apply merge collect)))))]
+    (df [] (apply sequential hmaps))))
 
 (defn wrap-enum
   "Takes an deserialiser and a function (including a map). Calls the
@@ -198,18 +216,18 @@
   [alt-d & value-ds]
   (assert (even? (count value-ds))
           "an even number of value deserialiser pairs is required")
-  (let [d-map (into {} value-ds)]
+  (let [d-map (apply hash-map value-ds)]
     (letfn [(df [d]
               (fn
                 ([b]
-                 (let [[v d'] (d b)]
+                 (let [[v d'] (deserialise d b)]
                    (if v
                      (if-let [vd (get d-map v)]
                        (return-next vd)
                        [nil nil])
                      (return-next (df 'd)))))
                 ([]
-                 (d))))]
+                 (flush d))))]
       (df alt-d))))
 
 (defn byte-seq
@@ -218,9 +236,9 @@
   [d bs]
   (lazy-seq
    (if (seq bs)
-     (let [[v d'] (deserialise d bs)]
+     (let [[v d'] (deserialise d (first bs))]
        (if v
-         (cons v (when d' (deserialise d' (rest bs))))
-         (when d' (deserialise d' (rest bs)))))
+         (cons v (when d' (byte-seq d' (rest bs))))
+         (when d' (byte-seq d' (rest bs)))))
      (when-let [flush-v (flush d)]
        (list flush-v)))))
