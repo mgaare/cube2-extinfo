@@ -114,8 +114,8 @@
   (fn
     ([b]
      (case b
-       -128 (return-next short-le-d)
-       -127 (return-next int-le-d)
+       -128 (return-next (short-le-d))
+       -127 (return-next (int-le-d))
        (return-value (int b))))
     ([]
      nil)))
@@ -140,7 +140,7 @@
                 ([b]
                  (let [[v d'] (deserialise cur-d b)
                        carry' (when v (update carry cur-k (add-v v)))]
-                   (cond (and v d')
+                   (cond (and v d') ;; TODO: combine this and following clause
                          (return-next
                           (df cur-k d' rest-ds carry'))
                          d'
@@ -206,7 +206,7 @@
               ([b]
                (let [[v d'] (deserialise d b)]
                  (if v
-                   (return-next (value-f v))
+                   (return-value (value-f v))
                    (return-next d'))))
               ([]
                (flush d))))]
