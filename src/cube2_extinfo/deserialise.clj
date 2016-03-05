@@ -139,19 +139,14 @@
               (fn
                 ([b]
                  (let [[v d'] (deserialise cur-d b)
-                       carry' (when v (update carry cur-k (add-v v)))]
-                   (cond (and v d') ;; TODO: combine this and following clause
-                         (return-next
-                          (df cur-k d' rest-ds carry'))
-                         d'
-                         (return-next
-                          (df cur-k d' rest-ds carry))
-                         v
-                         (let [[next-k next-d] (first rest-ds)]
-                           (if (seq rest-ds)
-                             (return-next (df next-k next-d (rest rest-ds) carry'))
-                             (return-value carry')))
-                         :else (return-value 'carry))))
+                       carry' (cond-> carry
+                                v (update cur-k (add-v v)))]
+                   (if d'
+                     (return-next (df cur-k d' rest-ds carry'))
+                     (let [[next-k next-d] (first rest-ds)]
+                       (if (seq rest-ds)
+                         (return-next (df next-k next-d (rest rest-ds) carry'))
+                         (return-value carry'))))))
                 ([]
                  (if-let [flush-v (flush cur-d)]
                    (update carry cur-k (add-v flush-v))
