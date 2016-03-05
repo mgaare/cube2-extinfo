@@ -227,6 +227,24 @@
                (flush d))))]
     (df d)))
 
+(defn wrap-xform
+  "Takes a deserialiser and an xform function. Calls the deserialiser
+   until it stops returning a next-d, collecting the values and
+   passing all the collected values (in a collection) to xform."
+  [d xform]
+  (letfn [(df [collect d]
+            (fn
+              ([b]
+               (let [[v d'] (deserialise d b)
+                     collect (cond-> collect
+                                v (conj v))]
+                 (if d'
+                   (return-next (df collect d'))
+                   (return-value (xform collect)))))
+              ([]
+               (xform collect))))]
+    (df [] d)))
+
 (defn alternative
   "Takes a deserialiser and keyvals in the form of value, deserialiser.
    Returns a deserialiser that calls the alt-d until it returns a
