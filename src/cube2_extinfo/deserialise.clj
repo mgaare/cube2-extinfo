@@ -249,6 +249,41 @@
                  (flush d))))]
       (df alt-d))))
 
+(defn passthru-alternative
+  "Like alternative, except that it passes the bytes including the
+   ones sent to alt-d to the value deserialiser.
+
+   Note if the value deserialiser returns a value from fewer bytes
+   than alt-d consumed, the remaining bytes that alt-d consumed won't
+   be sent to the value deserialiser."
+  [alt-d & value-ds]
+  (assert (even? (count value-ds))
+          "an even number of value deserialiser pairs is required")
+  (let [d-map (apply hash-map value-ds)]
+    (letfn [(df [bs d]
+              (fn
+                ([b]
+                 (let [bs' (conj bs b)
+                       [v d'] (deserialise d b)]
+                   (if v
+                     (if-let [vd (get d-map v)]
+                       (let [d-old-bs
+                             (reduce (fn [d b]
+                                       (let [[v d'] (deserialise d b)]
+                                         (cond (and v d')
+                                               (reduced [v d'])
+                                               v
+                                               (reduced (return-value v))
+                                               d' d'
+                                               :else (reduced (return-nothing)))))
+                                     vd bs')]
+                         (if (reduced? d-old-bs)
+                           d-old-bs
+                           (return-next d-old-bs)))
+                       [v nil])
+                     (return-next (df bs' d')))))))]
+      (df [] alt-d))))
+
 (defn byte-seq
   "Takes a deserialiser and seq of bytes, and returns lazy seq of
    deserialised objects."
