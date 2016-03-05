@@ -1,5 +1,6 @@
 (ns cube2-extinfo.extinfo
-  (:require [cube2-extinfo.deserialise :as d]))
+  (:require [clojure.string :as str]
+            [cube2-extinfo.deserialise :as d]))
 
 (def modes [:ffa
             :coop-edit
@@ -24,26 +25,6 @@
             :collect
             :insta-collect
             :effic-collect])
-
-;; serverinfo
-
-;; command - num greater than 0
-;; number of clients
-;; number of attrs
-;; attrs (5 or 7)
-;; mapname - string
-;; description - string
-
-;; 5 attrs
-;; protocol version
-;; gamemode
-;; remaining-time
-;; maxclients
-;; mastermode (enum 0-4)
-
-;; 7 attrs = 5+
-;; gamepaused 0/1 flag
-;; gamespeed
 
 (defn flag
   []
@@ -83,3 +64,59 @@
                                           :gamespeed (d/cube-compressed-int)))))
    (d/hmap :mapname (d/cstring)
            :description (d/cstring))))
+
+
+(defn command
+  []
+  (d/wrap-enum (d/cube-compressed-int)
+               {0 :ext-uptime
+                1 :ext-playerstats
+                2 :ext-teamscore}))
+
+(defn response-flag
+  []
+  (d/wrap-enum (d/cube-compressed-int)
+               {-1 :ext-ack
+                0 :ext-no-error
+                1 :ext-error
+                -10 :ext-playerstats-resp-ids
+                -11 :ext-playerstats-resp-stats}))
+
+(defn uptime
+  []
+  (d/hmap :prefix (d/cube-compressed-int)
+          :ext-command (command)
+          :ack (response-flag)
+          :ext-version (d/cube-compressed-int)
+          :uptime (d/cube-compressed-int)))
+
+(defn player-stats-response-stats
+  []
+  (d/hmap :flag (response-flag) ;;  -11
+          :cn (d/cube-compressed-int)
+          :ping (d/cube-compressed-int)
+          :name (d/cstring)
+          :team (d/cstring)
+          :frags (d/cube-compressed-int)
+          :flags (d/cube-compressed-int)
+          :deaths (d/cube-compressed-int)
+          :teamkills (d/cube-compressed-int)
+          :acc (d/cube-compressed-int)
+          :health (d/cube-compressed-int)
+          :armour (d/cube-compressed-int)
+          :gun (d/cube-compressed-int)
+          :privilege (d/cube-compressed-int)
+          :state (d/cube-compressed-int)
+          :ip (d/wrap-xform
+               (d/sequential
+                (d/unsigned-byte-d) (d/unsigned-byte-d) (d/unsigned-byte-d))
+               (fn [ips] (str (str/join "." ips) ".255")))))
+
+(defn player-stats
+  []
+  (d/hmap :prefix (d/cube-compressed-int)
+          :ext-command (command)
+          :cn (d/cube-compressed-int)
+          :ack (response-flag)
+          :ext-version (d/cube-compressed-int)
+          :error? (flag)))
