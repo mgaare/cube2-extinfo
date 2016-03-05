@@ -95,6 +95,9 @@
 (def byte-d
   (fixed-length-byte-deserialiser 1 get identity :be))
 
+(def unsigned-byte-d
+  (fixed-length-byte-deserialiser 1 get (partial bit-and 0xff) :be))
+
 (defn cstring
   "Deserialises null-terminated strings."
   []
