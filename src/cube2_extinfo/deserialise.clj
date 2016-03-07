@@ -206,14 +206,17 @@
           nil)))
     (let [bo (get byte-order bo)]
       `(letfn [(df# [carry#]
-                (fn [b'#]
-                  (let [carry'# (conj carry# b'#)]
-                    (if (= ~length (count carry'#))
-                      (return-value
-                       (.. (ByteBuffer/wrap (byte-array carry'#))
-                           (order ~bo)
-                           (~getter)))
-                      (return-next (df# carry'#))))))]
+                 (fn
+                   ([b'#]
+                    (let [carry'# (conj carry# b'#)]
+                      (if (= ~length (count carry'#))
+                        (return-value
+                         (.. (ByteBuffer/wrap (byte-array carry'#))
+                             (order ~bo)
+                             (~getter)))
+                        (return-next (df# carry'#)))))
+                   ([]
+                    nil)))]
          (fn [] (df# []))))))
 
 (def long-d
