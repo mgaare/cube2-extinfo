@@ -268,7 +268,7 @@
 (defn hmap
   "Deserialises bytes into a map. Takes keyvals where the vals are deserialisers.
 
-   eg. \"(map-deserialiser :a (cstring-d) :b (int-d))\""
+   eg. \"(map-deserialiser :a (cstring) :b (int-d))\""
   [& d-kvs]
   (assert (even? (count d-kvs))
           "an even number of key deserialiser pairs is required")
