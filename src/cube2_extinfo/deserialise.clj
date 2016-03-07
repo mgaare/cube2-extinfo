@@ -81,7 +81,7 @@
   Deserialiser
   (deserialise [this b]
     (let [[v next-d] (deserialise cur-nd b)]
-      (cond (not (nil? v))
+      (cond (some? v)
             (if (integer? v)
               (return-next (repeater v d))
               (throw (ex-info (str "value returned by repeat-d must be integer, got " v)
@@ -121,7 +121,7 @@
   [bs d]
   (reduce (fn [d b]
             (let [[v d'] (deserialise d b)]
-              (cond (not (nil? v))
+              (cond (some? v)
                     (reduced (return-value v))
                     (not d')
                     (reduced (return-nothing))
@@ -130,7 +130,7 @@
 
 (defn- to-d
   [[v d]]
-  (if (not (nil? v))
+  (if (some? v)
     (reify Deserialiser
       (deserialise [_ _] v)
       (flush [_] v))
@@ -141,7 +141,7 @@
   Deserialiser
   (deserialise [this b]
     (let [[v d'] (deserialise cur-d b)]
-      (cond (and d' (not (nil? v)))
+      (cond (and d' (some? v))
             [v d']
 
             d'
@@ -150,7 +150,7 @@
                  (assoc :cur-d d')
                  (update :consumed conj b)))
 
-            (not (nil? v))
+            (some? v)
             (return-value v)
 
             ;; Here's the complicated case - the current deserialiser
@@ -163,7 +163,7 @@
                     (->> ds
                          (map (partial catch-up-backtrack consumed))
                          (remove failure?))]
-                (cond (not (nil? v))
+                (cond (some? v)
                       (return-value v)
                       next-d
                       (return-next
@@ -285,7 +285,7 @@
                 ([b]
                  (let [[v d'] (deserialise cur-d b)
                        carry' (cond-> carry
-                                (not (nil? v)) (update cur-k (add-v v)))]
+                                (some? v) (update cur-k (add-v v)))]
                    (if d'
                      (return-next (df cur-k d' rest-ds carry'))
                      (let [[next-k next-d] (first rest-ds)]
@@ -306,11 +306,11 @@
             (fn
               ([b]
                (let [[v d'] (deserialise d b)]
-                 (cond (and (not (nil? v)) d')
+                 (cond (and (some? v) d')
                        [v (df d' ds)]
                        d'
                        (return-next (df d' ds))
-                       (not (nil? v))
+                       (some? v)
                        (if-let [next-d (first ds)]
                          [v (df next-d (rest ds))]
                          [v nil])
@@ -329,7 +329,7 @@
                        (return-next (df (conj collect v) d'))
                        d'
                        (return-next (df collect d'))
-                       (not (nil? v))
+                       (some? v)
                        (return-value (apply merge (conj collect v)))
                        :else
                        (return-value (apply merge collect)))))
@@ -345,7 +345,7 @@
             (fn
               ([b]
                (let [[v d'] (deserialise d b)]
-                 (if (not (nil? v))
+                 (if (some? v)
                    (return-value (value-f v))
                    (return-next d'))))
               ([]
@@ -362,7 +362,7 @@
             (fn
               ([b]
                (let [[v d'] (deserialise d b)]
-                 (if (not (nil? v))
+                 (if (some? v)
                    [v (value-f v)]
                    (return-next d'))))
               ([]
@@ -379,7 +379,7 @@
               ([b]
                (let [[v d'] (deserialise d b)
                      collect (cond-> collect
-                                (not (nil? v)) (conj v))]
+                                (some? v) (conj v))]
                  (if d'
                    (return-next (df collect d'))
                    (return-value (xform collect)))))
@@ -400,7 +400,7 @@
               (fn
                 ([b]
                  (let [[v d'] (deserialise d b)]
-                   (if (not (nil? v))
+                   (if (some? v)
                      (if-let [vd (get d-map v)]
                        (return-next vd)
                        [nil nil])
@@ -425,14 +425,14 @@
                 ([b]
                  (let [bs' (conj bs b)
                        [v d'] (deserialise d b)]
-                   (if (not (nil? v))
+                   (if (some? v)
                      (if-let [vd (get d-map v)]
                        (let [d-old-bs
                              (reduce (fn [d b]
                                        (let [[v d'] (deserialise d b)]
                                          (cond (and v d')
                                                (reduced [v d'])
-                                               (not (nil? v))
+                                               (some? v)
                                                (reduced (return-value v))
                                                d' d'
                                                :else (reduced (return-nothing)))))
@@ -451,7 +451,7 @@
   (lazy-seq
    (if (seq bs)
      (let [[v d'] (deserialise d (first bs))]
-       (if (not (nil? v))
+       (if (some? v)
          (cons v (when d' (byte-seq d' (rest bs))))
          (when d' (byte-seq d' (rest bs)))))
      (when-let [flush-v (flush d)]
