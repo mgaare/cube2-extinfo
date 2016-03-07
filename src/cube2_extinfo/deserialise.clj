@@ -44,6 +44,70 @@
   []
   [nil nil])
 
+;; 3 states
+;; - Needs to call n-d until a numeric value is returned to find the
+;; number of repeats (will handle this with RepeaterD)
+;; - Has n repeats of d
+;; - Repeat d forever
+
+(defrecord Repeater
+    [d n cur-d]
+  Deserialiser
+  (deserialise [this b]
+    (let [[v next-d] (deserialise cur-d b)]
+      (if next-d
+        [v (assoc this :cur-d next-d)]
+        (if (some-> n dec zero?)
+          (return-value v)
+          [v (cond-> (assoc this :cur-d d)
+               n (update :n dec))]))))
+  (flush [this]
+    (flush cur-d)))
+
+(defn repeater
+  "Repeats deserialiser d n times, or forever if no n passed."
+  ([d]
+   (repeater nil d))
+  ([n d]
+   (->Repeater d n d)))
+
+(defrecord RepeaterD
+    [d nd cur-nd]
+  Deserialiser
+  (deserialise [this b]
+    (let [[v next-d] (deserialise cur-nd b)]
+      (cond (not (nil? v))
+            (if (integer? v)
+              (return-next (repeater v d))
+              (throw (ex-info (str "value returned by repeat-d must be integer, got " v)
+                              {:repeater-d this})))
+            next-d
+            (return-next (assoc this :cur-nd next-d))
+            :else
+            (return-nothing))))
+  (flush [this]
+    (flush cur-nd)))
+
+(defn repeater-d
+  "Uses deserialiser n-d to determine how many times to repeat
+   deserialiser d. n-d must return an integer."
+  [n-d d]
+  (->RepeaterD d n-d n-d))
+
+(defn repeat
+  "Repeats deserialiser d. If n is a deserialiser, calls it with byte
+   inputs to determine the number of repeats. If n is numeric, repeat
+   n times. If no n passed, repeat forever."
+  ([d]
+   (repeater d))
+  ([n d]
+   (cond (satisfies? Deserialiser n)
+         (repeater-d n d)
+         (or (nil? n) (integer? n))
+         (repeater n d)
+         :else (ex-info (str "Invalid n arg " n)
+                        {:d d
+                         :n n}))))
 (def byte-order
   {:le `ByteOrder/LITTLE_ENDIAN
    :be `ByteOrder/BIG_ENDIAN
