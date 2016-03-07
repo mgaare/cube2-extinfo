@@ -387,6 +387,28 @@
                (xform collect))))]
     (df [] d)))
 
+(defrecord WrapRequired
+    [d required]
+  Deserialiser
+  (deserialise [this b]
+    (let [[v d'] (deserialise d b)]
+      (cond (some? v)
+            (if (= v required)
+              (return-value v)
+              (return-nothing))
+            d'
+            (return-next (assoc this :d d'))
+            :else (return-nothing))))
+  (flush [this]
+    (flush d)))
+
+(defn wrap-required
+  "Takes a deserialiser and a required value. Calls deserialiser until
+   it returns a value, and fails out if the returned value doesn't
+   match the required value."
+  [d required]
+  (->WrapRequired d required))
+
 (defn alternative
   "Takes a deserialiser and keyvals in the form of value, deserialiser.
    Returns a deserialiser that calls the alt-d until it returns a
