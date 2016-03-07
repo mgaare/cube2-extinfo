@@ -3,6 +3,14 @@
   (:refer-clojure :exclude (flush repeat))
   (:use cube2-extinfo.deserialise))
 
+(deftest hmap-test
+  (is (= (byte-seq (hmap :a (cstring) :b (int-d))
+                   (-> (mapv byte "hello")
+                       (conj 0)
+                       (concat [0 0 1 0])
+                       (byte-array)))
+         '({:a "hello" :b 256}))))
+
 (deftest wrap-required-test
   (testing "single byte"
     (is (= (byte-seq (wrap-required (byte-d) 1) (byte-array [1]))
