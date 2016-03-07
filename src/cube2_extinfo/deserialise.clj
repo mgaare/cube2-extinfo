@@ -1,6 +1,6 @@
 (ns cube2-extinfo.deserialise
   (:require [clojure.string :as str])
-  (:refer-clojure :exclude (flush))
+  (:refer-clojure :exclude (flush repeat))
   (:import [java.nio ByteBuffer ByteOrder]))
 
 ;; General idea here:
