@@ -268,6 +268,33 @@
     ([]
      nil)))
 
+(defn- update-val
+  [current-v new-v]
+  (cond (nil? current-v)   new-v
+        (coll? current-v)  (conj current-v new-v)
+        :else              (conj [current-v] new-v)))
+
+(defrecord HMap
+    [k d ds m]
+  Deserialiser
+  (deserialise [this b]
+    (let [[v d' :as result] (deserialise d b)
+          m' (cond-> m
+               (some? v) (update k update-val v))]
+      (cond (failure? result)
+            (return-nothing)
+            d'
+            (return-next (assoc this :d d' :m m'))
+            :else
+            (if (seq ds)
+              (let [[k d] (first ds)]
+                (return-next (assoc this :k k :d d :m m' :ds (rest ds))))
+              (return-value m')))))
+  (flush [this]
+    (if-let [flush-v (flush d)]
+      (update m k update-val flush-v)
+      m)))
+
 (defn hmap
   "Deserialises bytes into a map. Takes keyvals where the vals are deserialisers.
 
@@ -276,30 +303,8 @@
   (assert (even? (count d-kvs))
           "an even number of key deserialiser pairs is required")
   (let [ds (partition 2 d-kvs)
-        add-v (fn [v]
-                (fn [cur] (cond (nil? cur)
-                                v
-                                (vector? cur)
-                                (conj cur v)
-                                :else (conj [cur] v))))
-        [first-k first-d] (first ds)]
-    (letfn [(df [cur-k cur-d rest-ds carry]
-              (fn
-                ([b]
-                 (let [[v d'] (deserialise cur-d b)
-                       carry' (cond-> carry
-                                (some? v) (update cur-k (add-v v)))]
-                   (if d'
-                     (return-next (df cur-k d' rest-ds carry'))
-                     (let [[next-k next-d] (first rest-ds)]
-                       (if (seq rest-ds)
-                         (return-next (df next-k next-d (rest rest-ds) carry'))
-                         (return-value carry'))))))
-                ([]
-                 (if-let [flush-v (flush cur-d)]
-                   (update carry cur-k (add-v flush-v))
-                   carry))))]
-      (df first-k first-d (rest ds) {}))))
+        [k d] (first ds)]
+    (->HMap k d (rest ds) {})))
 
 (defn sequential
   "Returns a deserialiser which will deserialise using deserialisers
