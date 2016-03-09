@@ -25,6 +25,14 @@
                      (byte-array (conj (mapv byte "bye") 0)))
            '()))))
 
+(deftest wrap-non-negative-test
+  (let [nn-d (wrap-non-negative (byte-d))]
+    (is (= (deserialise nn-d 1)
+           [1 nil]))
+    (is (= (deserialise nn-d 0)
+           [0 nil]))
+    (is (= (deserialise nn-d -1)
+           [nil nil]))))
 (deftest backtracking-alts-test
   (is (= (byte-seq (backtracking-alts
                     (hmap :a (byte-d)

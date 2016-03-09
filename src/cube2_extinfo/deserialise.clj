@@ -363,6 +363,20 @@
                (xform collect))))]
     (df [] d)))
 
+(defn wrap-non-negative
+  "Takes a deserialiser, returns a deserialiser that succeeds only on
+   non-negative numbers."
+  [d]
+  (fn
+    ([b]
+     (let [[v d'] (deserialise d b)]
+       [(when (and (some? v) (number? v) (>= v 0))
+          v)
+        (when d'
+          (wrap-non-negative d'))]))
+    ([]
+     (flush d))))
+
 (defrecord WrapRequired
     [d required]
   Deserialiser
