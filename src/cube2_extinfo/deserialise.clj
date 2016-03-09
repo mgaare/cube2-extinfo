@@ -117,64 +117,32 @@
 ;; list of deserialisers to try, in order. If deserialiser returns nil
 ;; next-d before returning a value, tries the next deserialiser.
 
-(defn- catch-up-backtrack
-  [bs d]
-  (reduce (fn [d b]
-            (let [[v d'] (deserialise d b)]
-              (cond (some? v)
-                    (reduced (return-value v))
-                    (not d')
-                    (reduced (return-nothing))
-                    :else d')))
-          d bs))
 
 (defn- to-d
   [[v d]]
   (if (some? v)
     (reify Deserialiser
-      (deserialise [_ _] v)
+      (deserialise [_ _] (return-value v))
       (flush [_] v))
     d))
 
 (defrecord BacktrackingAlts
-    [ds cur-d consumed]
+    [ds]
   Deserialiser
   (deserialise [this b]
-    (let [[v d'] (deserialise cur-d b)]
-      (cond (and d' (some? v))
-            [v d']
-
-            d'
-            (return-next
-             (-> this
-                 (assoc :cur-d d')
-                 (update :consumed conj b)))
-
-            (some? v)
+    (let [[[v d] & _ :as rs]
+          (->> ds
+               (map #(deserialise % b))
+               (remove failure?))]
+      (cond (some? v)
             (return-value v)
-
-            ;; Here's the complicated case - the current deserialiser
-            ;; has failed. The following section (lazily) applies the
-            ;; consumed bytes to all the deserialisers, filtering out
-            ;; failures, and moves on to the next one.
+            d
+            (return-next (assoc this :ds (map to-d rs)))
             :else
-            (if (seq ds)
-              (let [[[v next-d] & rem-ds]
-                    (->> ds
-                         (map (partial catch-up-backtrack consumed))
-                         (remove failure?))]
-                (cond (some? v)
-                      (return-value v)
-                      next-d
-                      (return-next
-                       (assoc this
-                              :cur-d next-d
-                              :ds (map to-d rem-ds)
-                              :consumed []))
-                      :else (return-nothing)))
-              (return-nothing)))))
+            (return-nothing))))
   (flush [this]
-    (flush cur-d)))
+    (when-let [d (first ds)]
+      (flush d))))
 
 (defn backtracking-alts
   "Takes one or more deserialisers as args. Returns a deserialiser
@@ -184,7 +152,7 @@
    until one of the deserialisers returns a value or all of them
    fail."
   [& ds]
-  (->BacktrackingAlts (rest ds) (first ds) []))
+  (->BacktrackingAlts ds))
 
 (def byte-order
   {:le `ByteOrder/LITTLE_ENDIAN

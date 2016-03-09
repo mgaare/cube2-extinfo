@@ -24,3 +24,14 @@
     (is (= (byte-seq (wrap-required (byte-d) "hello")
                      (byte-array (conj (mapv byte "bye") 0)))
            '()))))
+
+(deftest backtracking-alts-test
+  (is (= (byte-seq (backtracking-alts
+                    (hmap :a (byte-d)
+                          :b (wrap-required (byte-d) 3)
+                          :c (byte-d))
+                    (hmap :d (byte-d)
+                          :e (wrap-required (byte-d) 2)
+                          :f (byte-d)))
+                   (byte-array [1 2 3]))
+         '({:d 1 :e 2 :f 3}))))
