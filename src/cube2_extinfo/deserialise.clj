@@ -114,10 +114,6 @@
                         {:d d
                          :n n}))))
 
-;; list of deserialisers to try, in order. If deserialiser returns nil
-;; next-d before returning a value, tries the next deserialiser.
-
-
 (defn- to-d
   [[v d]]
   (if (some? v)
