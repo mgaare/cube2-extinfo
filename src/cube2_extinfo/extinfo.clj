@@ -69,30 +69,30 @@
 (defn command
   []
   (d/wrap-enum (d/cube-compressed-int)
-               {0 :ext-uptime
-                1 :ext-playerstats
-                2 :ext-teamscore}))
+               {-10 :ext-playerstats-resp-ids
+                -11 :ext-playerstats-resp-stats
+                0   :ext-uptime
+                1   :ext-playerstats
+                2   :ext-teamscore}))
 
-(defn response-flag
+(defn ack
   []
-  (d/wrap-enum (d/cube-compressed-int)
-               {-1 :ext-ack
-                0 :ext-no-error
-                1 :ext-error
-                -10 :ext-playerstats-resp-ids
-                -11 :ext-playerstats-resp-stats}))
+  (d/wrap-required (d/wrap-enum (d/cube-compressed-int)
+                                {-1 :ext-ack})
+                   :ext-ack))
 
 (defn uptime
   []
   (d/hmap :prefix (d/cube-compressed-int)
-          :ext-command (command)
-          :ack (response-flag)
+          :ext-command (d/wrap-required (command) :ext-uptime)
+          :ack (ack)
           :ext-version (d/cube-compressed-int)
           :uptime (d/cube-compressed-int)))
 
 (defn player-stats-response-stats
   []
-  (d/hmap :flag (response-flag) ;;  -11
+  (d/hmap :ext-command (d/wrap-required (command)
+                                        :ext-playerstats-resp-stats)
           :cn (d/cube-compressed-int)
           :ping (d/cube-compressed-int)
           :name (d/cstring)
@@ -114,9 +114,15 @@
 
 (defn player-stats
   []
-  (d/hmap :prefix (d/cube-compressed-int)
-          :ext-command (command)
+  (d/hmap :prefix (d/wrap-required (d/cube-compressed-int) 0)
+          :ext-command (d/wrap-required (command) :ext-playerstats)
           :cn (d/cube-compressed-int)
-          :ack (response-flag)
+          :ack (ack)
           :ext-version (d/cube-compressed-int)
           :error? (flag)))
+
+(defn player-stats-response-ids
+  []
+  (d/hmap :ext-command (d/wrap-required (command)
+                                        :ext-playerstats-resp-ids)
+          :ids (d/repeat (d/wrap-non-negative (d/cube-compressed-int)))))
