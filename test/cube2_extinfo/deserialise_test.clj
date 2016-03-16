@@ -40,6 +40,14 @@
     (is (= (deserialise nn-d -1)
            [nil nil]))))
 
+(deftest wrap-suffix-test
+  (let [sd (wrap-suffix (byte-d)
+                        (wrap-required (byte-d) 1))]
+    (is (= (byte-seq sd (byte-array [1 1]))
+           '(1)))
+    (is (= (byte-seq sd (byte-array [1 0]))
+           '()))))
+
 (deftest backtracking-alts-test
   (is (= (byte-seq (backtracking-alts
                     (hmap :a (byte-d)

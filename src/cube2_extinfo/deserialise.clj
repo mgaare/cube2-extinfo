@@ -395,6 +395,33 @@
   [d required]
   (->WrapRequired d required))
 
+(defrecord WrapSuffix
+    [d suffix-d v]
+  Deserialiser
+  (deserialise [this b]
+    (if v
+      (let [[sv sd'] (deserialise suffix-d b)]
+        (cond (some? sv) (return-value v)
+              sd'        (return-next (assoc this :suffix-d sd'))
+              :else      (return-nothing)))
+      (let [[v d'] (deserialise d b)]
+        (cond (some? v) (return-next (assoc this :v v))
+              d'        (return-next (assoc this :d d'))
+              :else     (return-nothing)))))
+  (flush [this]
+    (if v
+      v
+      (flush d))))
+
+(defn wrap-suffix
+  "Takes a deserialiser and a deserialiser for the suffix. Calls
+   deserialiser until it returns a value or fails, and then calls the
+   suffix deserialiser until it returns a value or fails. If suffix
+   deserialiser fails, returns failure, otherwise returns value from
+   the deserialiser."
+  [d suffix-d]
+  (->WrapSuffix d suffix-d nil))
+
 (defn alternative
   "Takes a deserialiser and keyvals in the form of value, deserialiser.
    Returns a deserialiser that calls the alt-d until it returns a
