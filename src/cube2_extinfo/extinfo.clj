@@ -50,7 +50,7 @@
 (defn server-info
   []
   (d/merge-hmaps
-   (d/hmap :command-id (d/cube-compressed-int)
+   (d/hmap :command-id (d/wrap-required (d/cube-compressed-int) pos?)
            :clients (d/cube-compressed-int))
    (let [base-attrs [:protocol-version (d/cube-compressed-int)
                      :gamemode (gamemode)
@@ -126,3 +126,21 @@
   (d/hmap :ext-command (d/wrap-required (command)
                                         :ext-playerstats-resp-ids)
           :ids (d/repeat (d/wrap-non-negative (d/cube-compressed-int)))))
+
+(defn team
+  []
+  (d/wrap-suffix
+   (d/hmap :team (d/cstring)
+           :score (d/cube-compressed-int))
+   (d/wrap-required (d/cube-compressed-int) -1)))
+
+(defn team-scores
+  []
+  (d/hmap :prefix (d/wrap-required (d/cube-compressed-int) 0)
+          :ext-command (d/wrap-required (command) :ext-teamscore)
+          :ack (ack)
+          :ext-version (d/cube-compressed-int)
+          :error? (flag)
+          :gamemode (gamemode)
+          :remaining-time (d/cube-compressed-int)
+          :teams (d/repeat (team))))
