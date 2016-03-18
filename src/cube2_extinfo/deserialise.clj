@@ -235,7 +235,7 @@
 (defn- update-val
   [current-v new-v]
   (cond (nil? current-v)   new-v
-        (coll? current-v)  (conj current-v new-v)
+        (vector? current-v)  (conj current-v new-v)
         :else              (conj [current-v] new-v)))
 
 (defrecord HMap
