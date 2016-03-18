@@ -253,11 +253,12 @@
             (if (seq ds)
               (let [[k d] (first ds)]
                 (return-next (assoc this :k k :d d :m m' :ds (rest ds))))
-              (return-value m')))))
+              (return-value (when (seq m') m'))))))
   (flush [this]
     (if-let [flush-v (flush d)]
       (update m k update-val flush-v)
-      m)))
+      (when (seq m)
+        m))))
 
 (defn hmap
   "Deserialises bytes into a map. Takes keyvals where the vals are deserialisers.
