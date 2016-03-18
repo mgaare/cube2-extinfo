@@ -380,9 +380,12 @@
   (deserialise [this b]
     (let [[v d'] (deserialise d b)]
       (cond (some? v)
-            (if (= v required)
-              (return-value v)
-              (return-nothing))
+            (let [pass? (if (fn? required)
+                          (required v)
+                          (= v required))]
+              (if pass?
+                (return-value v)
+                (return-nothing)))
             d'
             (return-next (assoc this :d d'))
             :else (return-nothing))))
@@ -390,9 +393,9 @@
     (flush d)))
 
 (defn wrap-required
-  "Takes a deserialiser and a required value. Calls deserialiser until
-   it returns a value, and fails out if the returned value doesn't
-   match the required value."
+  "Takes a deserialiser and a required value or predicate function.
+   Calls deserialiser until it returns a value, and fails out if the
+   returned value doesn't match the required value."
   [d required]
   (->WrapRequired d required))
 
