@@ -217,7 +217,8 @@
                  (return-value (str/join carry))
                  (return-next (df (conj carry (char b))))))
               ([]
-               carry)))]
+               (when (seq carry)
+                 (str/join carry)))))]
     (df [])))
 
 (defn cube-compressed-int
