@@ -144,3 +144,14 @@
           :gamemode (gamemode)
           :remaining-time (d/cube-compressed-int)
           :teams (d/repeat (team))))
+
+(defn info
+  []
+  (d/repeat
+   (d/backtracking-alts
+    (server-info)
+    (uptime)
+    (player-stats-response-ids)
+    (player-stats-response-stats)
+    (player-stats)
+    (team-scores))))
