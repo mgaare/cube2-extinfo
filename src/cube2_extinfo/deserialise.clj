@@ -307,7 +307,8 @@
                        (return-value (apply merge (conj collect v)))
                        :else
                        (return-value (apply merge collect)))))
-              ([] (return-value (apply merge collect)))))]
+              ([] (when (seq collect)
+                    (apply merge collect)))))]
     (df [] (apply sequential hmaps))))
 
 (defn wrap-enum
